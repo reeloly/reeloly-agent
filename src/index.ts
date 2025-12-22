@@ -30,20 +30,34 @@ async function runAgent(task: string, options: AgentOptions) {
 				append: `\n\n${options.extraSystemPrompt || ""}`,
 			},
 			cwd: options.cwd,
+			continue: true,
+			includePartialMessages: true,
 		},
 	})) {
-		// Print human-readable output
-		if (message.type === "assistant" && message.message?.content) {
-			for (const block of message.message.content) {
-				if ("text" in block) {
-					console.log(block.text); // Claude's reasoning
-				} else if ("name" in block) {
-					console.log(`[Tool: ${block.name}]`); // Tool being called
-				}
-			}
-		} else if (message.type === "result") {
-			console.log(`\n---\nDone: ${message.subtype}`); // Final result
-		}
+		// 	if (message.type === "system" && message.subtype === "init") {
+		// 		console.log(`Initializing agent...`);
+		// 	} else if (message.type === "assistant" && message.message?.content) {
+		// 		for (const block of message.message.content) {
+		// 			// if ("text" in block) {
+		// 			// 	console.log(block.text); // Claude's reasoning
+		// 			// } else if ("name" in block) {
+		// 			// 	console.log(`[Tool: ${block.name}]`); // Tool being called
+		// 			// }
+		// 			if ("name" in block) {
+		// 				console.log(`[Tool: ${block.name}]`); // Tool being called
+		// 			}
+		// 		}
+		// 	} else if (
+		// 		message.type === "stream_event" &&
+		// 		message.event.type === "content_block_delta" &&
+		// 		"text" in message.event.delta
+		// 	) {
+		// 		console.log(message.event.delta.text);
+		// 	} else if (message.type === "result") {
+		// 		console.log(`\n---\nDone: ${message.subtype}`); // Final result
+		// 	}
+		const outputMessage = JSON.stringify(message);
+		console.log(outputMessage);
 	}
 }
 
