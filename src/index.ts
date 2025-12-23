@@ -4,6 +4,7 @@ import { Command } from "commander";
 interface AgentOptions {
 	extraSystemPrompt?: string;
 	cwd: string;
+	continue?: boolean;
 }
 
 async function runAgent(task: string, options: AgentOptions) {
@@ -32,7 +33,7 @@ async function runAgent(task: string, options: AgentOptions) {
 				append: `\n\n${options.extraSystemPrompt || ""}`,
 			},
 			cwd: options.cwd,
-			continue: true,
+			continue: options.continue,
 			includePartialMessages: true,
 		},
 	})) {
@@ -76,6 +77,7 @@ program
 		"Extra system prompt to append to the task",
 	)
 	.option("-c, --cwd <path>", "The current working directory", process.cwd())
+	.option("-k, --continue", "Continue the task", false)
 	.action((options: AgentOptions) => {
 		const task = process.env.TASK_INPUT;
 		if (!task) {
