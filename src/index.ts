@@ -18,9 +18,11 @@ async function runAgent(task: string, options: AgentOptions) {
 		process.exit(1);
 	}
 
+	const decodedTask = Buffer.from(task, "base64").toString("utf-8");
+
 	// Agentic loop: streams messages as Claude works
 	for await (const message of query({
-		prompt: task,
+		prompt: decodedTask,
 		options: {
 			allowedTools: ["Read", "Edit", "Write", "Glob", "Bash", "Grep"],
 			permissionMode: "acceptEdits",
