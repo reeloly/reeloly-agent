@@ -18,11 +18,11 @@ async function runAgent(task: string, options: AgentOptions) {
 		process.exit(1);
 	}
 
-	const decodedTask = Buffer.from(task, "base64").toString("utf-8");
+	// const decodedTask = Buffer.from(task, "base64").toString("utf-8");
 
 	// Agentic loop: streams messages as Claude works
 	for await (const message of query({
-		prompt: decodedTask,
+		prompt: task,
 		options: {
 			allowedTools: ["Read", "Edit", "Write", "Glob", "Bash", "Grep"],
 			permissionMode: "acceptEdits",
@@ -70,13 +70,18 @@ program
 	.name("agent")
 	.description("Run Claude Agent SDK with custom tasks and system prompts")
 	.version("1.0.0")
-	.argument("<task>", "The task for Claude to perform")
+	// .argument("<task>", "The task for Claude to perform")
 	.option(
 		"-e, --extraSystemPrompt <prompt>",
 		"Extra system prompt to append to the task",
 	)
 	.option("-c, --cwd <path>", "The current working directory", process.cwd())
-	.action((task: string, options: AgentOptions) => {
+	.action((options: AgentOptions) => {
+		const task = process.env.TASK_INPUT;
+		if (!task) {
+			console.error("Error: TASK_INPUT environment variable is not set");
+			process.exit(1);
+		}
 		runAgent(task, options).catch((error) => {
 			console.error(
 				"Error running agent:",
