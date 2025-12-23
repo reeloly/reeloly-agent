@@ -25,7 +25,7 @@ async function runAgent(task: string, options: AgentOptions) {
 	for await (const message of query({
 		prompt: task,
 		options: {
-			allowedTools: ["Read", "Edit", "Write", "Glob", "Bash", "Grep"],
+			allowedTools: ["Skill", "Read", "Edit", "Write", "Glob", "Bash", "Grep"],
 			permissionMode: "acceptEdits",
 			systemPrompt: {
 				type: "preset",
