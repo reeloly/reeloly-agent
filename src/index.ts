@@ -1,4 +1,4 @@
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Command } from "commander";
 
 interface AgentOptions {
@@ -7,7 +7,27 @@ interface AgentOptions {
 	continue?: boolean;
 }
 
-async function runAgent(task: string, options: AgentOptions) {
+async function* generateMessages(
+	task: string,
+	sessionId: string,
+): AsyncIterable<SDKUserMessage> {
+	// First message
+	yield {
+		type: "user" as const,
+		message: {
+			role: "user" as const,
+			content: task,
+		},
+		parent_tool_use_id: null,
+		session_id: sessionId,
+	};
+}
+
+async function runAgent(
+	task: string,
+	sessionId: string,
+	options: AgentOptions,
+) {
 	// Ensure API key is set
 	const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -23,7 +43,7 @@ async function runAgent(task: string, options: AgentOptions) {
 
 	// Agentic loop: streams messages as Claude works
 	for await (const message of query({
-		prompt: task,
+		prompt: generateMessages(task, sessionId),
 		options: {
 			allowedTools: ["Skill", "Read", "Edit", "Write", "Glob", "Bash", "Grep"],
 			permissionMode: "acceptEdits",
@@ -71,20 +91,21 @@ program
 	.name("agent")
 	.description("Run Claude Agent SDK with custom tasks and system prompts")
 	.version("1.0.0")
-	// .argument("<task>", "The task for Claude to perform")
 	.option(
 		"-e, --extraSystemPrompt <prompt>",
 		"Extra system prompt to append to the task",
 	)
 	.option("-c, --cwd <path>", "The current working directory", process.cwd())
 	.option("-k, --continue", "Continue the task", false)
-	.action((options: AgentOptions) => {
+	.option("-s, --sessionId <id>", "The session ID", "123")
+	.action((sessionId: string, options: AgentOptions) => {
+		// Get the task from the environment variable to avoid complex quoting/escaping issues
 		const task = process.env.TASK_INPUT;
 		if (!task) {
 			console.error("Error: TASK_INPUT environment variable is not set");
 			process.exit(1);
 		}
-		runAgent(task, options).catch((error) => {
+		runAgent(task, sessionId, options).catch((error) => {
 			console.error(
 				"Error running agent:",
 				error instanceof Error ? error.message : String(error),
