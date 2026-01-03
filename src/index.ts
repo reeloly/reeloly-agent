@@ -1,6 +1,14 @@
 import fs from "node:fs";
-import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { mkdir, unlink } from "node:fs/promises";
+import {
+	type CanUseTool,
+	query,
+	type SDKUserMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import { Command } from "commander";
+import pWaitFor from "p-wait-for";
+
+const ANSWERS_DIR = "/tmp/claude-answers";
 
 interface AgentOptions {
 	extraSystemPrompt?: string;
@@ -44,11 +52,63 @@ async function* generateMessages(
 	};
 }
 
+const promptForToolApproval: CanUseTool = async (toolName, input, options) => {
+	// Auto-allow all tools except AskUserQuestion
+	if (toolName !== "AskUserQuestion") {
+		return {
+			behavior: "allow",
+			updatedInput: input,
+		};
+	}
+
+	const answerFile = `${ANSWERS_DIR}/${options.toolUseID}.json`;
+
+	try {
+		// Wait for answer file to appear
+		await pWaitFor(
+			async () => {
+				const file = Bun.file(answerFile);
+				return file.exists();
+			},
+			{
+				interval: 500, // Check every 500ms
+				// timeout: 300000, // 5 minute timeout
+				timeout: 10000, // 10 seconds timeout
+			},
+		);
+
+		// Read and parse the answer file
+		const file = Bun.file(answerFile);
+		const content = (await file.json()) as { answers: Record<string, string> };
+		const answers = content.answers;
+
+		// Clean up the answer file
+		await unlink(answerFile);
+
+		return {
+			behavior: "allow",
+			updatedInput: { ...input, answers },
+		};
+	} catch (error) {
+		console.error({
+			message: "Error waiting for answer file",
+			error,
+		});
+		return {
+			behavior: "deny",
+			message: "Error waiting for answer file",
+		};
+	}
+};
+
 async function runAgent(
 	task: string,
 	images: TaskImage[],
 	options: AgentOptions,
 ) {
+	// Ensure answers directory exists for AskUserQuestion responses
+	await mkdir(ANSWERS_DIR, { recursive: true });
+
 	// Ensure API key is set
 	const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -66,7 +126,16 @@ async function runAgent(
 	for await (const message of query({
 		prompt: generateMessages(task, images, options.sessionId),
 		options: {
-			allowedTools: ["Skill", "Read", "Edit", "Write", "Glob", "Bash", "Grep"],
+			allowedTools: [
+				"Skill",
+				"Read",
+				"Edit",
+				"Write",
+				"Glob",
+				"Bash",
+				"Grep",
+				"AskUserQuestion",
+			],
 			permissionMode: "bypassPermissions",
 			systemPrompt: {
 				type: "preset",
@@ -77,6 +146,9 @@ async function runAgent(
 			continue: options.continue,
 			includePartialMessages: true,
 			settingSources: ["user", "project"],
+			canUseTool: async (toolName, input, options) => {
+				return await promptForToolApproval(toolName, input, options);
+			},
 		},
 	})) {
 		// 	if (message.type === "system" && message.subtype === "init") {
