@@ -1,14 +1,22 @@
+import fs from "node:fs";
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Command } from "commander";
 
 interface AgentOptions {
 	extraSystemPrompt?: string;
+	sessionId: string;
 	cwd: string;
 	continue?: boolean;
 }
 
+interface TaskImage {
+	path: string;
+	mediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+}
+
 async function* generateMessages(
 	task: string,
+	images: TaskImage[],
 	sessionId: string,
 ): AsyncIterable<SDKUserMessage> {
 	// First message
@@ -16,7 +24,20 @@ async function* generateMessages(
 		type: "user" as const,
 		message: {
 			role: "user" as const,
-			content: task,
+			content: [
+				{
+					type: "text",
+					text: task,
+				},
+				...images.map((image) => ({
+					type: "image" as const,
+					source: {
+						type: "base64" as const,
+						media_type: image.mediaType,
+						data: fs.readFileSync(image.path).toString("base64"),
+					},
+				})),
+			],
 		},
 		parent_tool_use_id: null,
 		session_id: sessionId,
@@ -25,7 +46,7 @@ async function* generateMessages(
 
 async function runAgent(
 	task: string,
-	sessionId: string,
+	images: TaskImage[],
 	options: AgentOptions,
 ) {
 	// Ensure API key is set
@@ -43,7 +64,7 @@ async function runAgent(
 
 	// Agentic loop: streams messages as Claude works
 	for await (const message of query({
-		prompt: generateMessages(task, sessionId),
+		prompt: generateMessages(task, images, options.sessionId),
 		options: {
 			allowedTools: ["Skill", "Read", "Edit", "Write", "Glob", "Bash", "Grep"],
 			permissionMode: "acceptEdits",
@@ -97,15 +118,30 @@ program
 	)
 	.option("-c, --cwd <path>", "The current working directory", process.cwd())
 	.option("-k, --continue", "Continue the task", false)
-	.option("-s, --sessionId <id>", "The session ID", "123")
-	.action((sessionId: string, options: AgentOptions) => {
+	.option("-s, --sessionId <id>", "The session ID", "")
+	.action((options: AgentOptions) => {
 		// Get the task from the environment variable to avoid complex quoting/escaping issues
 		const task = process.env.TASK_INPUT;
 		if (!task) {
 			console.error("Error: TASK_INPUT environment variable is not set");
 			process.exit(1);
 		}
-		runAgent(task, sessionId, options).catch((error) => {
+
+		const taskImagesEnv = process.env.TASK_IMAGES;
+		let images: TaskImage[] = [];
+		if (taskImagesEnv) {
+			try {
+				images = JSON.parse(taskImagesEnv) as TaskImage[];
+			} catch (error) {
+				console.error({
+					message: "Error parsing TASK_IMAGES environment variable",
+					error,
+				});
+				process.exit(1);
+			}
+		}
+
+		runAgent(task, images, options).catch((error) => {
 			console.error(
 				"Error running agent:",
 				error instanceof Error ? error.message : String(error),
