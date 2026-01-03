@@ -76,6 +76,7 @@ async function runAgent(
 			cwd: options.cwd,
 			continue: options.continue,
 			includePartialMessages: true,
+			settingSources: ["user", "project"],
 		},
 	})) {
 		// 	if (message.type === "system" && message.subtype === "init") {
