@@ -67,7 +67,7 @@ async function runAgent(
 		prompt: generateMessages(task, images, options.sessionId),
 		options: {
 			allowedTools: ["Skill", "Read", "Edit", "Write", "Glob", "Bash", "Grep"],
-			permissionMode: "acceptEdits",
+			permissionMode: "bypassPermissions",
 			systemPrompt: {
 				type: "preset",
 				preset: "claude_code",
