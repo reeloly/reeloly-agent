@@ -133,6 +133,7 @@ async function runAgent(
 				"Bash",
 				"Grep",
 				"AskUserQuestion",
+				"Task",
 			],
 			permissionMode: "bypassPermissions",
 			systemPrompt: {
