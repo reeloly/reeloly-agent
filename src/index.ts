@@ -72,7 +72,6 @@ const promptForToolApproval: CanUseTool = async (toolName, input, options) => {
 			},
 			{
 				interval: 500, // Check every 500ms
-				timeout: 300000, // 5 minute timeout
 			},
 		);
 
