@@ -104,8 +104,16 @@ async function runAgent(
 	images: TaskImage[],
 	options: AgentOptions,
 ) {
-	// Ensure answers directory exists for AskUserQuestion responses
-	await mkdir(ANSWERS_DIR, { recursive: true });
+	try {
+		// Ensure answers directory exists for AskUserQuestion responses
+		await mkdir(ANSWERS_DIR, { recursive: true });
+	} catch (error) {
+		console.error({
+			message: "Error creating answers directory",
+			error,
+		});
+		process.exit(1);
+	}
 
 	// Ensure API key is set
 	const apiKey = process.env.ANTHROPIC_API_KEY;
